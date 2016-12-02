@@ -18,6 +18,6 @@ Requirement:
 4. copy all files from THA/DemoApp/ACTIVE to THA/DemoApp/STANDBY
 5. in THA/DemoApp/STANDBY dir, open app_main.c
 6. in main(), change the value of the variable from 1 to 0 for I_AM_ACTIVE_CP. Save and close the file
-7. run make in THA/DemoApp/STANDBY. This will create executable tobe run on standby machine
+7. run make in THA/DemoApp/STANDBY. This will create executable to be run on standby machine
 8. run THA/DemoApp/STANDBY/exe first, then run THA/DemoApp/ACTIVE/exe
-9. Now enjoy the program, you will see the objects being synced to standby whenever you choode option 11 in main menu.
+9. Now enjoy the program, you will see the objects being synced to standby whenever you choose option 11 in main menu.
