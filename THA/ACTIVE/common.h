@@ -1,0 +1,33 @@
+#ifndef __COMMON__
+#define __COMMON__
+
+typedef enum {
+	UINT8,
+	UINT32,
+	INT32,
+	CHAR,
+	VOID_OBJ_PTR,
+	OBJ_PTR,
+	FLOAT,
+	DOUBLE,
+	OBJ_STRUCT
+} DATA_TYPE_t;
+
+#define SIZEOF_UINT8	1
+#define SIZEOF_UINT32	4
+#define SIZEOF_INT32	4
+#define SIZEOF_CHAR	1
+#define SIZEOF_VOID_OBJ_PTR	4
+#define SIZEOF_OBJ_PTR		4
+#define SIZEOF_FLOAT	4
+#define SIZEOF_DOUBLE	8
+
+#define SUCCESS  0
+#define FAILURE -1
+
+#define LOGGING_ENABLE	1
+#define MAX_STRUCTURE_NAME_SIZE	128
+#define MAX_FIELD_NAME_SIZE	128
+#define NOT_THA_ENABLED_POINTER	-1
+
+#endif
