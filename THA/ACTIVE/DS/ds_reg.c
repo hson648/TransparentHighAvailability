@@ -28,7 +28,7 @@ void stack_tha_reg(tha_handle_t *handle){
 	
 	static tha_field_info_t stack_t_fields[] = {
 		HA_FIELD_INFO(stack_t, top, INT32, 0),
-		HA_FIELD_INFO(stack_t, slot, VOID_OBJ_PTR, 0),
+		HA_FIELD_INFO(stack_t, slot, VOID_PTR, 0),
 		HA_FIELD_INFO(stack_t, count_of_push, INT32, 0),
 		HA_FIELD_INFO(stack_t, count_of_pop, INT32, 0)
 	};
@@ -58,7 +58,7 @@ void tree_tha_reg(tha_handle_t *handle){
 void queue_tha_reg(tha_handle_t *handle){
 	
 	static tha_field_info_t Queue_t_fields[]={
-		HA_FIELD_INFO(Queue_t, elem, VOID_OBJ_PTR, 0),
+		HA_FIELD_INFO(Queue_t, elem, VOID_PTR, 0),
 		HA_FIELD_INFO(Queue_t, front, UINT32, 0),
 		HA_FIELD_INFO(Queue_t, rear, UINT32, 0),
 		HA_FIELD_INFO(Queue_t, count, UINT32, 0)

@@ -20,13 +20,11 @@ typedef enum{
 typedef struct HA_LL_Node{
     int data;
     struct HA_LL_Node *next;
-    int *tha_enable;
 } ha_singly_ll_node_t;
 
 typedef struct HA_LL{
     unsigned int node_count;
     ha_singly_ll_node_t *head;
-    int *tha_enable;
 } ha_ll_t;
 
 ha_ll_t* ha_init_singly_ll();

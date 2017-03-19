@@ -90,7 +90,12 @@ main(int argc, char **argv){
 	/* for Stabndby CP : Main Thread should block itself here after completing the registration of 
 	structures and 	Global variables */
 	person_t person1[2];
-	THA_ADD_GLOBAL_OBJECT(handle, person_t, person1);
+	person_t person2;
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, person1, person_t);
+	THA_ADD_GLOBAL_OBJECT_BY_VAL(handle, person2, person_t);
+	
+	int aaa = 0;
+	THA_ADD_GLOBAL_OBJECT_BY_VAL(handle, aaa, int);
 		
 	if(I_AM_ACTIVE_CP == 0){
 		printf("Application slipping into standby mode\n");

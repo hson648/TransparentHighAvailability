@@ -77,7 +77,6 @@ struct _tha_struct_db_rec_t{
 	unsigned int ds_size;
 	unsigned int n_fields;
 	tha_field_info_t *fields;
-	int tha_enable_offset;
 	char late_binding_flag;
 };
 
@@ -136,9 +135,9 @@ do{										\
 	rec->ds_size = sizeof(st_name);						\
 	rec->n_fields = sizeof(_fields)/sizeof(tha_field_info_t);		\
 	rec->fields = _fields;							\
-	rec->tha_enable_offset = HA_FIELD_OFFSET(st_name, tha_enable);		\
-	if(ha_reg_struct(handle, rec) == FAILURE)				\
+	if(ha_reg_struct(handle, rec) == FAILURE){				\
 		free(rec);							\
+	}									\
 	int rc = bind_field_nested_structure(handle, _fields, rec->n_fields);   \
 	if(rc == FAILURE)							\
 		rec->late_binding_flag = 1;					\
@@ -159,6 +158,7 @@ struct _tha_object_db_rec_t{
 	char obj_name[MAX_STRUCTURE_NAME_SIZE];
 	unsigned int units;
 	int object_type;
+	unsigned int *tha_enable_offset;
 	tha_struct_db_rec_t *struct_rec;
 };
 
@@ -180,50 +180,47 @@ dump_tha_object_db(tha_handle_t *handle);
 void
 dump_object_db_rec(tha_object_db_rec_t *rec);
 
-tha_object_db_rec_t*
-get_back_pointer_to_obj_rec(char *obj_ptr, tha_struct_db_rec_t *struct_rec);
-
 
 /* THA Operarions */
 
 #define ha_calloc(handle, out_ptr, structure,  units)					\
 do{											\
-	int i =0;									\
-	structure *temp = NULL;								\
 	if(I_AM_ACTIVE_CP == 0)								\
 		break;									\
 	tha_struct_db_rec_t *struct_rec = tha_struct_db_look_up(handle, #structure);	\
 	if(struct_rec){									\
 		out_ptr = (structure *)calloc(sizeof(structure), units); 		\
-		temp = out_ptr;								\
-		for(i = 0; i < units; i++){						\
-		      temp->tha_enable = (int *)calloc(struct_rec->n_fields + 2,	\
-				         sizeof(int));					\
-		      temp = temp + 1;							\
-		}									\
 	}										\
 	tha_add_object(handle, out_ptr, #structure, NULL, units, DYN_OBJ);		\
 }while(0);
 
 
-#define THA_ADD_GLOBAL_OBJECT(handle, structure, obj_id)				\
+/* to be used for base array pointers Or simple pointers to the objects*/
+#define THA_ADD_GLOBAL_OBJECT_BY_REF(handle, obj_id, ref_type)					\
 do{											\
-	tha_struct_db_rec_t *struct_rec = tha_struct_db_look_up(handle, #structure);	\
-	int units = sizeof(obj_id)/sizeof(structure), i = 0;				\
-	memset(&obj_id, 0, sizeof(obj_id) * units);					\
-	for(; i < units; i++)								\
-	(((structure *)&obj_id)+i)->tha_enable = 					\
-			(int *)calloc(struct_rec->n_fields+2, sizeof(int));		\
-	tha_add_object(handle, &obj_id, #structure, #obj_id, units, STATIC_OBJ);	\
+	int units = sizeof(obj_id)/sizeof(ref_type);					\
+	memset(obj_id, 0, sizeof(ref_type) * units);					\
+	tha_add_object(handle, obj_id, #ref_type, #obj_id, units, STATIC_OBJ);		\
 }while(0);										
 
-
+#if 1
+/* to be used for object variables*/
+#define THA_ADD_GLOBAL_OBJECT_BY_VAL(handle, obj_id, structure)				\
+do{											\
+	int units = sizeof(obj_id)/sizeof(structure);					\
+	memset(&obj_id, 0, sizeof(structure));						\
+	tha_add_object(handle, &obj_id, #structure, #obj_id, units, STATIC_OBJ);	\
+}while(0);										
+#endif
 
 #define GET_OBJECT_PTR_AT_INDEX(object_rec, object_index)	\
 	((char *)(object_rec->ptr) + (object_index * object_rec->struct_rec->ds_size))
 
-#define FREE_OBJECT_HASH_ARRAY(object_rec, object_index)	\
-	free((void *)*(int *)(GET_OBJECT_PTR_AT_INDEX(object_rec, object_index) + object_rec->struct_rec->tha_enable_offset))
+#define FREE_OBJECT_HASH_ARRAY(object_rec)	\
+	free(object_rec->tha_enable_offset);	\
+	object_rec->tha_enable_offset = NULL;
+
+
 int
 tha_add_object(tha_handle_t *handle, void *ptr, char *str_name, char *obj_id, int units, int obj_type);
 
@@ -246,7 +243,7 @@ tha_object_db_rec_t* tha_object_db_lookup_by_Addr(tha_handle_t *handle, void *ad
 tha_object_db_rec_t *tha_object_db_lookup_by_objid(tha_handle_t *handle,  char *obj_id);
 
 /* work for both static and dynamic objects*/
-int *get_struct_hash_array_fn(tha_object_db_rec_t *obj_rec, int *out_size, int obj_index);
+unsigned int *get_struct_hash_array_fn(tha_object_db_rec_t *obj_rec, int *out_size, int obj_index);
 
 int
 tha_remove_object_db_rec(tha_handle_t *handle, tha_object_db_rec_t *object_rec);
@@ -257,15 +254,6 @@ ha_sync(tha_handle_t *handle);
 
 void
 ha_free(void *obj_ptr);
-
-void
-ha_memset(void *ptr, int val, int size);
-
-void
-ha_memset_at_index(void *ptr, int index, int val, int size);
-
-void
-ha_memcpy(void *dst, void *src, int size);
 
 typedef void (*cotrol_fn)();
 void tha_acquire_standby_state(cotrol_fn fn);

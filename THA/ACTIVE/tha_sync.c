@@ -100,7 +100,7 @@ de_serialize_internal_object(tha_handle_t *handle, ser_buff_t *b, // points to t
 
 		switch(fdtype){
 			case OBJ_PTR:
-			case VOID_OBJ_PTR:
+			case VOID_PTR:
 				{
 					int nested_ptr_value = 0;
 					memcpy(&nested_ptr_value, (char *)(b->b) + b->next, sizeof(int));
@@ -155,7 +155,7 @@ struct_rec - structure record for Current object pointer*/
 
 int
 de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b, 
-		     tha_struct_db_rec_t *struct_rec){
+		     tha_struct_db_rec_t *struct_rec, unsigned int *hash_array){
 
 	int rc = SUCCESS, 
 	    i = 0, 
@@ -163,7 +163,6 @@ de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b,
 	    changed_fld_index = 0, 
 	    re_compute_hash_code_flag = 0;	
 
-	int *hash_array    	 = (int *)(*(int *)(obj_ptr + struct_rec->tha_enable_offset));
 	tha_field_info_t *fields = struct_rec->fields;
 	de_serialize_string((char *)&n_fields_changed,  b, sizeof(int));
 	
@@ -189,7 +188,7 @@ de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b,
 				}
 				break;
 			case OBJ_PTR:
-			case VOID_OBJ_PTR:
+			case VOID_PTR:
 				{
 				/* if the value in this field in serialized buffer is NOT_THA_ENABLED_POINTER
 				   then no OP*/
@@ -268,7 +267,7 @@ de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b,
 static int 
 tha_update_object(tha_handle_t *handle, serialize_hdr_t *hdr, ser_buff_t *b){
 	printf("%s(): units = %d\n", __FUNCTION__, hdr->units);	
-	int *hash_array = NULL, arr_size = 0;
+	unsigned int *hash_array = NULL; int arr_size = 0;
 	char *obj_id = get_serialize_buffer_current_ptr(b);
 	tha_object_db_rec_t *obj_rec = tha_object_db_lookup_by_objid(handle, obj_id);
 	
@@ -289,9 +288,10 @@ tha_update_object(tha_handle_t *handle, serialize_hdr_t *hdr, ser_buff_t *b){
 	int units = hdr->units, obj_index = 0;
 	for(; obj_index < units; obj_index++){
 		char *current_object_ptr = GET_OBJECT_PTR_AT_INDEX(obj_rec, obj_index);
-		de_serialize_object(handle, current_object_ptr, b, struct_rec);
 		hash_array = get_struct_hash_array_fn(obj_rec, &arr_size, obj_index);
+		de_serialize_object(handle, current_object_ptr, b, struct_rec, hash_array);
 		hash_array[0] = hash_code(current_object_ptr, struct_rec->ds_size);
+		hash_array[struct_rec->n_fields + 1] = (unsigned int)obj_rec;
 	}
 	return SUCCESS;
 }
@@ -309,14 +309,10 @@ tha_delete_object(tha_handle_t *handle, serialize_hdr_t *hdr, ser_buff_t *b){
 		 return FAILURE;
 	 }
 
-	int object_index = 0, units = 0;
-	units = object_rec->units;
-	
-	for(; object_index < units; object_index++){
-		FREE_OBJECT_HASH_ARRAY(object_rec, object_index);
-	}
+	FREE_OBJECT_HASH_ARRAY(object_rec);
 
 	free(object_rec->ptr);
+
 	if(tha_remove_object_db_rec(handle, object_rec) == FAILURE){
 		printf("%s(): Error : Could not find the object_Rec in objectdb for obj_id = %s\n", __FUNCTION__, obj_id);
 		return FAILURE;
@@ -343,7 +339,8 @@ mark_changed_objects(tha_handle_t *handle){
 		return 0;
 	};
 
-	int i = 0, *hash_array = NULL, arr_size = 0,
+	unsigned int *hash_array = NULL;
+	int i = 0, arr_size = 0,
 	    computed_hash_code = 0, stored_hash_code = 0,
 	    count_marked_objects = 0;
 	
@@ -458,26 +455,12 @@ tha_create_object(tha_handle_t *handle, serialize_hdr_t *hdr, ser_buff_t *b){
 		return FAILURE;;
 	}
 
-	int n_fields = struct_rec->n_fields, obj_index = 0, rc = SUCCESS;
+	int rc = SUCCESS;
 	int obj_type = DYN_OBJ, units = hdr->units;
 	char *obj_ptr = calloc(units, struct_rec->ds_size);
-	int **tha_enable = NULL;	
-	for(obj_index = 0; obj_index < units; obj_index++){
-		char *current_obj_ptr = obj_ptr + (obj_index * struct_rec->ds_size);
-		tha_enable = 
-			(int **)(current_obj_ptr +  struct_rec->tha_enable_offset);
-		*tha_enable = calloc(1, (n_fields + 2) * sizeof(int));
-	}
 	rc = tha_add_object(handle, obj_ptr, struct_name, obj_id, units, obj_type);
 	if(rc == FAILURE){
 		printf("%s() : Object with objid = %s failed to be added\n", __FUNCTION__, obj_id);	
-		// free up the resources in case of failure
-		for(obj_index = 0; obj_index < units; obj_index++){
-			char *current_obj_ptr = obj_ptr + (obj_index * struct_rec->ds_size);
-			tha_enable = 
-				(int **)(current_obj_ptr +  struct_rec->tha_enable_offset);
-			free(*tha_enable);
-		}
 		free(obj_ptr);
 	}
 	return rc;
@@ -574,8 +557,8 @@ de_serialize_buffer(tha_handle_t *handle, char *msg , int size){
 ser_buff_t *
 serialize_object(tha_handle_t *handle, tha_object_db_rec_t *obj_rec){
 	tha_struct_db_rec_t *struct_rec = NULL;
-	int *hash_array = NULL, 
-	     arr_size = 0, i = 0, obj_index=0,
+	unsigned int *hash_array = NULL;
+	     int arr_size = 0, i = 0, obj_index=0,
 	     computed_hash_code = 0,
 	     n_fields_changed = 0,
 	     n_fields_offset_in_ser_buffer = 0,
@@ -640,7 +623,7 @@ serialize_object(tha_handle_t *handle, tha_object_db_rec_t *obj_rec){
 							serialize_buffer_skip(b, MAX_STRUCTURE_NAME_SIZE);
 							break;	
 						}
-						tha_object_db_rec_t *nested_object =  get_back_pointer_to_obj_rec((char *)nested_ptr, field_info->nested_struct_ptr);
+						tha_object_db_rec_t *nested_object =  tha_object_db_lookup_by_Addr(handle, nested_ptr);
 						if(nested_object)
 							serialize_string(b, nested_object->obj_id, MAX_STRUCTURE_NAME_SIZE);
 						else{
@@ -649,7 +632,7 @@ serialize_object(tha_handle_t *handle, tha_object_db_rec_t *obj_rec){
 						}
 					}
 					break;
-				case VOID_OBJ_PTR:
+				case VOID_PTR:
 					{
 						void *nested_ptr = NULL;
 						memcpy(&nested_ptr, current_obj_ptr + field_info->offset, field_info->size);
@@ -732,7 +715,7 @@ serialize_object_all_fields(tha_handle_t *handle, tha_object_db_rec_t *obj_rec){
 							serialize_buffer_skip(b, MAX_STRUCTURE_NAME_SIZE);
 							break;	
 						}
-						tha_object_db_rec_t *nested_object =  get_back_pointer_to_obj_rec((char *)nested_ptr, field_info->nested_struct_ptr);
+						tha_object_db_rec_t *nested_object =  tha_object_db_lookup_by_Addr(handle, nested_ptr);
 						if(nested_object)
 							serialize_string(b, nested_object->obj_id, MAX_STRUCTURE_NAME_SIZE);
 						else{
@@ -741,7 +724,7 @@ serialize_object_all_fields(tha_handle_t *handle, tha_object_db_rec_t *obj_rec){
 						}
 					}
 					break;
-				case VOID_OBJ_PTR:
+				case VOID_PTR:
 					{
 						void *nested_ptr = NULL;
 						memcpy(&nested_ptr, current_obj_ptr + field_info->offset, field_info->size);
@@ -795,7 +778,7 @@ be synced fully irrespective of which fields have changed. We will improve on th
 
         for(i = 0; i < n_fields; i++){
                 switch((&fields[i])->dtype){
-                        case VOID_OBJ_PTR:
+                        case VOID_PTR:
                         {
                                 /* This pointer could be the pointer to THA registered object Or Non-Tha registered Object*/
                                   void *nested_ptr = NULL;
@@ -804,7 +787,7 @@ be synced fully irrespective of which fields have changed. We will improve on th
 					serialize_buffer_skip(b, MAX_STRUCTURE_NAME_SIZE);
 					break;
 			          }
-				  /* If it is a VOID_OBJ_PTR, we have no choice other than to look into object db*/
+				  /* If it is a VOID_PTR, we have no choice other than to look into object db*/
                                   tha_object_db_rec_t *nested_object = tha_object_db_lookup_by_Addr(handle, nested_ptr);
                                   if(nested_object)
                                           serialize_string(b, nested_object->obj_id, MAX_STRUCTURE_NAME_SIZE);
@@ -824,7 +807,7 @@ be synced fully irrespective of which fields have changed. We will improve on th
 					serialize_buffer_skip(b, MAX_STRUCTURE_NAME_SIZE);
 					break;
 			          }
-                                  tha_object_db_rec_t *nested_object = get_back_pointer_to_obj_rec((char *)nested_ptr, fields[i].nested_struct_ptr);
+                                  tha_object_db_rec_t *nested_object = tha_object_db_lookup_by_Addr(handle, nested_ptr);
                                   if(nested_object)
                                           serialize_string(b, nested_object->obj_id, MAX_STRUCTURE_NAME_SIZE);
                                   else{
@@ -950,13 +933,12 @@ add_to_dependency_graph(tha_handle_t *handle,
 						if(nested_ptr == NULL || (int)nested_ptr == NOT_THA_ENABLED_POINTER)
 							continue;
 
-						tha_object_db_rec_t *nested_object =  
-							get_back_pointer_to_obj_rec((char *)nested_ptr, field_info->nested_struct_ptr);
+						tha_object_db_rec_t *nested_object = tha_object_db_lookup_by_Addr(handle, nested_ptr); 
 						if(!nested_object->dirty_bit)
 							add_to_dependency_graph(handle, nested_object);
 					}		
 					break;
-				case VOID_OBJ_PTR:
+				case VOID_PTR:
 					{
 						void *nested_ptr = NULL;
 						memcpy(&nested_ptr, GET_OBJECT_PTR_AT_INDEX(object_rec, obj_index) + field_info->offset, field_info->size);

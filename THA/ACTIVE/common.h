@@ -6,7 +6,7 @@ typedef enum {
 	UINT32,
 	INT32,
 	CHAR,
-	VOID_OBJ_PTR,
+	VOID_PTR,
 	OBJ_PTR,
 	FLOAT,
 	DOUBLE,
@@ -17,7 +17,7 @@ typedef enum {
 #define SIZEOF_UINT32	4
 #define SIZEOF_INT32	4
 #define SIZEOF_CHAR	1
-#define SIZEOF_VOID_OBJ_PTR	4
+#define SIZEOF_VOID_PTR	4
 #define SIZEOF_OBJ_PTR		4
 #define SIZEOF_FLOAT	4
 #define SIZEOF_DOUBLE	8

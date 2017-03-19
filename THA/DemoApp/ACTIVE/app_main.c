@@ -3,17 +3,18 @@
 #include "../../ACTIVE/tha_db.h"
 
 #include "./../../ACTIVE/DS/Trees/tree.h"
-#include "./../../ACTIVE/DS/LinkedList/LinkedListApi.h"
+#include "./../../ACTIVE/DS/LinkedList/HALinkedListApi.h"
 #include "app_fn_db.h"
 #include "app.h"
 
 /* Global Variables*/
 
-tha_obj_ptr_t tree; 
-tha_obj_ptr_t list1;
-tha_obj_ptr_t list2;
-tha_obj_ptr_t manager;
-tha_obj_ptr_t engineer;
+tree_t *tree; 
+ha_ll_t *list1;
+ha_ll_t *list2;
+manager_t *manager;
+engineer_t *engineer;
+void *global_void_ptr;
 
 void main_menu(){
 do{
@@ -39,6 +40,7 @@ do{
 	printf("	15. Clean Standby Application State\n");
 	printf("	16. Bulk Sync\n");
 	printf("	21. No of Objects that will sync\n");
+	printf("	22. Exchange Lists\n");
 	printf("Enter Choice : ");
 	int choice;
 	scanf("%d", &choice);
@@ -49,7 +51,7 @@ do{
 			int elem;
 			printf("Enter new element to be added:");
 			scanf("%d", &elem);
-			ha_singly_ll_add_node_by_val(list1.ptr, elem);
+			ha_singly_ll_add_node_by_val(list1, elem);
 			//ha_sync(handle);
 			break;
 		}
@@ -58,7 +60,7 @@ do{
 			int elem;
 			printf("Enter new element to be added:");
 			scanf("%d", &elem);
-			ha_singly_ll_add_node_by_val(list2.ptr, elem);
+			ha_singly_ll_add_node_by_val(list2, elem);
 			//ha_sync(handle);
 			break;
 		}
@@ -67,42 +69,50 @@ do{
 			int elem;
 			printf("Enter new element to be removed:");
 			scanf("%d", &elem);
-			ha_singly_ll_remove_node_by_value(list1.ptr, elem);
+			ha_singly_ll_remove_node_by_value(list1, elem);
 			//ha_sync(handle);
 			break;
 		}
 		case 20:
-			ha_delete_singly_ll(list1.ptr);;
+			ha_delete_singly_ll(list1);;
 			break;
 		case 18:
 		{
 			int elem;
 			printf("Enter new element to be removed:");
 			scanf("%d", &elem);
-			ha_singly_ll_remove_node_by_value(list2.ptr, elem);
+			ha_singly_ll_remove_node_by_value(list2, elem);
 			//ha_sync(handle);
 			break;
 		}
+		case 22:
+		{
+			ha_ll_t *temp = NULL;
+			temp = list1;
+			list1= list2;
+			list2 = temp;
+		}
+			break;
 		case 3:
 		{
 			int elem;
 			printf("Enter new element to be added:");
 			scanf("%d", &elem);
-			add_tree_node_by_value(tree.ptr, elem);
+			add_tree_node_by_value(tree, elem);
 			//ha_sync(handle);
 			break;
 		}
 		case 4:
-			ha_print_singly_LL(list1.ptr);
+			ha_print_singly_LL(list1);
 			break;	
 		case 19:
-			ha_print_singly_LL(list2.ptr);
+			ha_print_singly_LL(list2);
 			break;	
 		case 5:
-			printAllTraversals(tree.ptr);
+			printAllTraversals(tree);
 			break;
 		case 6:
-			ha_reverse_singly_ll(list1.ptr);
+			ha_reverse_singly_ll(list1);
 			break;
 		case 7:
 			dump_tha_struct_db(handle);
@@ -125,14 +135,14 @@ do{
 				printf("		Enter 2nd no, Val 2 = ?");
 				scanf("%d", &n2);
 				printf("\n");
-				printf("	LowestCommonAncestor = %d\n", (LowestCommonAncestor(tree.ptr, n1, n2))->data);
+				printf("	LowestCommonAncestor = %d\n", (LowestCommonAncestor(tree, n1, n2))->data);
 			}
 			break;
 		case 13:
-			InorderNR(tree.ptr);
+			InorderNR(tree);
 			break;
 		case 14:
-			tree.ptr = removeHalfNodes(tree.ptr);
+			tree = removeHalfNodes(tree);
 			printf("	Half nodes removed\n");
 			break;
 		case 15:
@@ -154,20 +164,20 @@ void THA_APPLICATION_GLOBAL_STATE_INITIALISATION(){
 
 	/*Step 11: Initialise the handle to global objects of the application. Note, this code fragment
 	will execute only on Active MM. */
-	tree.ptr = init_tree();
-	list1.ptr = (void *)ha_init_singly_ll();
-	list2.ptr = (void *)ha_init_singly_ll();
+	tree = init_tree();
+	list1 = (void *)ha_init_singly_ll();
+	list2 = (void *)ha_init_singly_ll();
 
 #if 1
 	/* Initalise global objects as well*/
-	ha_calloc(handle, manager.ptr,  manager_t,  1);
-	ha_calloc(handle, engineer.ptr, engineer_t, 1);
+	ha_calloc(handle, manager,  manager_t,  1);
+	ha_calloc(handle, engineer, engineer_t, 1);
 
-	strcpy(((manager_t *)(manager.ptr))->manager_name, "Govind");
-	((manager_t *)(manager.ptr))->engineer = engineer.ptr;
+	strcpy(((manager_t *)(manager))->manager_name, "Govind");
+	((manager_t *)(manager))->engineer = engineer;
 
-	strcpy(((engineer_t *)(engineer.ptr))->eng_name, "Abhishek");
-	((engineer_t *)(engineer.ptr))->manager = manager.ptr;
+	strcpy(((engineer_t *)(engineer))->eng_name, "Abhishek");
+	((engineer_t *)(engineer))->manager = manager;
 #endif
 	/* Just run ha_sync(handle) once after Registration of Global Objects 
 	to ensure sync the calloc'd element of Static global objects to standby, if any.
@@ -229,11 +239,13 @@ main(int argc, char **argv){
 	as it is taken care of  by macro. In case, you dont have a handle to global object, but a global
 	object directly, (manager and engineer global variables in our case), register them as well here.*/
 
-	THA_ADD_GLOBAL_OBJECT(handle, tha_obj_ptr_t, tree);    // registering the pointer to the global tree
-	THA_ADD_GLOBAL_OBJECT(handle, tha_obj_ptr_t, list1);   // registering the pointer to the global list 1
-	THA_ADD_GLOBAL_OBJECT(handle, tha_obj_ptr_t, list2);   // registering the pointer to global list 2
-	THA_ADD_GLOBAL_OBJECT(handle, tha_obj_ptr_t, manager); // register global objects directly
-	THA_ADD_GLOBAL_OBJECT(handle, tha_obj_ptr_t, engineer);// register global objects directly.
+
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, &tree, OBJ_PTR);    // registering the pointer to the global tree
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, &list1, OBJ_PTR);   // registering the pointer to the global list 1
+	THA_ADD_GLOBAL_OBJECT_BY_VAL(handle, list2, OBJ_PTR);   // registering the pointer to global list 2
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, &manager, OBJ_PTR); // register global objects directly
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, &engineer, OBJ_PTR);// register global objects directly.
+	THA_ADD_GLOBAL_OBJECT_BY_REF(handle, &global_void_ptr, VOID_PTR);
 
 	/* Now application will adopt the Active and Standby Role*/
 

@@ -25,7 +25,7 @@ typedef struct _tha_sync_pending_linkage{
 
 
 typedef struct _tha_save_hashcode_recompute_data{
-	int *hash_code;
+	unsigned int *hash_code;
 	char *start_ptr;
 	int len;
 } tha_save_hashcode_recompute_data_t;
@@ -68,7 +68,7 @@ de_serialize_buffer(tha_handle_t *handle, char *msg , int size);
 
 int
 de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b, 
-			tha_struct_db_rec_t *struct_rec);
+			tha_struct_db_rec_t *struct_rec, unsigned int *hash_array);
 
 void
 serialize_internal_object(tha_handle_t *handle, ser_buff_t *b,

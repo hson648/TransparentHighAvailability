@@ -11,13 +11,11 @@ typedef struct tree_node{
   struct tree_node *right;
   int data;
   char isVisited;
-  int *tha_enable;
 } tree_node_t;
 
 typedef struct tree{
     tree_node_t *root;
     stack_t *stack;
-    int *tha_enable;
 } tree_t;
 
 int

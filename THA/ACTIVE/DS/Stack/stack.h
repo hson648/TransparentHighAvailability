@@ -9,7 +9,6 @@ typedef struct stack{
     void* slot[MAX_STACK_SIZE];
     int count_of_push;
     int count_of_pop;
-    int *tha_enable;
 }stack_t;
 
 stack_t*

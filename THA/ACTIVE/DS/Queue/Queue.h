@@ -13,7 +13,6 @@ typedef struct _Queue{
         uint32_t front;
         uint32_t rear;
         uint32_t count;
-	int *tha_enable;
 } Queue_t;
 
 Queue_t* initQ();
