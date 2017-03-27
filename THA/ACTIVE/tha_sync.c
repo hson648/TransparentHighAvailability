@@ -6,11 +6,19 @@
 #include "serialize.h"
 #include "stdlib.h"
 #include "DS/LinkedList/LinkedListApi.h"
+#include "time.h"
+#include "string.h"
+#include "errno.h"
 
 extern int tha_sync_msg_to_standby(char *msg, int size);
 ll_t* orphan_pointer_list 	 = NULL;
 ll_t* hash_code_recompute_list 	 = NULL;
 static int BULK_SYNC_IN_PROGRESS = 0;
+extern FILE *checkpoint_file;
+extern char enable_checkpoint ;
+extern int state_sync_start(tha_handle_t *handle, char *msg, int size);
+ser_buff_t *checkpoint_load_buffer;
+
 
 static void
 tha_send_orphan_pointers_commit(){
@@ -22,7 +30,7 @@ tha_send_orphan_pointers_commit(){
 	serialize_int32(b, hdr.op_code);
         serialize_int32(b, hdr.payload_size);
         serialize_int32(b, hdr.units);
-	tha_sync_msg_to_standby(b->b, get_serialize_buffer_size(b));	
+	state_sync_start(handle, b->b, get_serialize_buffer_size(b));
 	free_serialize_buffer(b);
 }
 
@@ -37,7 +45,7 @@ tha_send_commit(){
 	serialize_int32(b, hdr.op_code);
         serialize_int32(b, hdr.payload_size);
         serialize_int32(b, hdr.units);
-	tha_sync_msg_to_standby(b->b, get_serialize_buffer_size(b));	
+	state_sync_start(handle, b->b, get_serialize_buffer_size(b));
 	free_serialize_buffer(b);
 }
 
@@ -536,7 +544,7 @@ de_serialize_buffer(tha_handle_t *handle, char *msg , int size){
 		case BULK_SYNC:
 			rc = tha_recv_bulk_sync(handle, &hdr, b);
 			break;
-		case  ORPHAN_POINTER_COMMIT:
+		case ORPHAN_POINTER_COMMIT:
 			tha_process_commit_orphan_pointers_list(handle);
 			break;
 		case COMMIT:
@@ -961,6 +969,20 @@ add_to_dependency_graph(tha_handle_t *handle,
 	tha_sync_object(BULK_SYNC, handle, object_rec, SYNC_ALL_FIELDS);
 }
 
+static void
+format_time(char *output){
+	time_t rawtime;
+	struct tm * timeinfo;
+
+	time ( &rawtime );
+	timeinfo = localtime ( &rawtime );
+
+	sprintf(output, "%d%d%d%d%d%d",	
+			timeinfo->tm_mday, timeinfo->tm_mon + 1, 
+			timeinfo->tm_year + 1900, timeinfo->tm_hour, 
+			timeinfo->tm_min, timeinfo->tm_sec);
+}
+
 
 int
 tha_bulk_sync(tha_handle_t *handle){
@@ -968,6 +990,16 @@ tha_bulk_sync(tha_handle_t *handle){
 	if(I_AM_ACTIVE_CP == 0)
 		return SUCCESS;
 
+  	if(enable_checkpoint){
+		char fname[64], time_stamp[32];
+		strcpy(fname, "CHP_");
+		format_time(time_stamp);
+		strcat(fname, time_stamp);
+		printf("Application state  checkointed to file %s\n", fname);
+		checkpoint_file = fopen(fname, "wb");		
+	}	
+	
+	
 	tha_object_db_t *object_db = handle->object_db;
 	tha_object_db_rec_t *object_rec = object_db->head;
 
@@ -1010,5 +1042,60 @@ tha_bulk_sync(tha_handle_t *handle){
 	clean_dirty_bit(handle);
 	tha_send_orphan_pointers_commit();
 	tha_send_commit();
+	if(enable_checkpoint == CHECKPOINT_ENABLE && checkpoint_file){
+		fclose(checkpoint_file);
+		checkpoint_file = NULL;
+	}
 	return SUCCESS;
 }
+
+
+void
+load_checkpoint (char *CHP_FILE_NAME){
+	printf("Loading checkpoint from file %s\n", CHP_FILE_NAME);	
+	/* This process should be done when checkpoint is  disabled*/
+	if( enable_checkpoint == CHECKPOINT_ENABLE ){
+		printf("Checkpoint load aborted, disable the  checkpoint first\n");
+		return;
+	}
+	/*Active should clean Standby state now*/
+	send_tha_clean_application_state_order(handle);
+	/* Active should clean its own state now*/
+	tha_clean_application_state(handle);
+	/* Load checkpoint file now*/
+
+	checkpoint_file = fopen(CHP_FILE_NAME, "rb");
+	if (checkpoint_file == NULL){
+		printf ("%s(): Error in open() checkpoint file : %s\n", __FUNCTION__, CHP_FILE_NAME);
+		printf("errno = %d\n", errno);
+		return;
+	}
+
+	int i = 1;
+	serialize_hdr_t msg_hdr;
+
+	while(1){
+		if(fread(checkpoint_load_buffer->b, SERIALIZED_HDR_SIZE, 1, checkpoint_file)){
+#if 1
+			de_serialize_string((char *)&msg_hdr.op_code, checkpoint_load_buffer, sizeof(msg_hdr.op_code));
+			de_serialize_string((char *)&msg_hdr.payload_size, checkpoint_load_buffer, sizeof(msg_hdr.payload_size));
+			de_serialize_string((char *)&msg_hdr.units, checkpoint_load_buffer, sizeof(msg_hdr.units));
+			printf("%s() : %d : header contents : op_code = %d, payload_size = %d, units = %d\n", 
+					__FUNCTION__, i++, msg_hdr.op_code, msg_hdr.payload_size, msg_hdr.units);
+#endif
+			fread(checkpoint_load_buffer->b + SERIALIZED_HDR_SIZE,  msg_hdr.payload_size, 1, checkpoint_file);
+			/* process the object read on Active*/
+			de_serialize_buffer(handle, checkpoint_load_buffer->b, SERIALIZED_HDR_SIZE + msg_hdr.payload_size);
+			/* Sync the object read to Standby*/
+			ha_incremental_sync(handle, checkpoint_load_buffer->b, SERIALIZED_HDR_SIZE + msg_hdr.payload_size);	
+			/* reset buffer to process the next object*/
+			reset_serialize_buffer(checkpoint_load_buffer);	
+			continue;
+		}
+		break;
+	}
+	
+	fclose(checkpoint_file);
+	checkpoint_file = NULL;
+}
+

@@ -19,6 +19,7 @@ extern int init_tha_sending_socket(tha_handle_t *handle);
 extern int tha_sync_delete_one_object(tha_handle_t *handle, char *obj_id);
 extern ll_t* orphan_pointer_list;
 extern ll_t* hash_code_recompute_list;
+extern ser_buff_t *checkpoint_load_buffer;
 
 char *DATA_TYPE[] = {"UINT8" , 		
 		     "UINT32", 
@@ -114,12 +115,12 @@ tha_handle_t* init_tha(char *standby_ip, _fn_ptr_db fn_ptr_db){
 	else
 		init_tha_sending_socket(handle);
 
-	/* These are standby specific data structures*/
-	if(I_AM_ACTIVE_CP == 0){
-		orphan_pointer_list 	 = init_singly_ll();
-		hash_code_recompute_list = init_singly_ll();	
-	}
+	orphan_pointer_list 	 = init_singly_ll();
 
+	hash_code_recompute_list = init_singly_ll();	
+
+	/* initialize the checkpoint load buffer*/
+	init_serialized_buffer_of_defined_size(&checkpoint_load_buffer, 1024 * 1024);
 	return handle;
 }
 
@@ -713,9 +714,6 @@ tha_clean_application_state(tha_handle_t *handle){
 	tha_object_db_rec_t *head = object_db->head, 
 			    *temp = NULL;
 
-	/* Del All Dynamic Objects*/
-	if(I_AM_ACTIVE_CP == 1)
-		return;
 FIRST:
 	if(head && head->object_type == DYN_OBJ){
 		free_object_in_object_record(head);

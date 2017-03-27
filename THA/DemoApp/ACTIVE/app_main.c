@@ -6,7 +6,9 @@
 #include "./../../ACTIVE/DS/LinkedList/HALinkedListApi.h"
 #include "app_fn_db.h"
 #include "app.h"
+//#include "../../ACTIVE/tha_sync.h"
 
+extern char enable_checkpoint ;
 /* Global Variables*/
 
 tree_t *tree; 
@@ -20,13 +22,9 @@ void main_menu(){
 do{
 	printf("***************************\n");
 	printf("	1. Add element in a list1\n");
-	printf("       17. Add element in a list2\n");
 	printf("	2. Delete element from the list1\n");
-        printf("       20. Delete complete list\n");
-	printf("       18. Delete element from the list2\n");
 	printf("	3. Add element in a tree\n");
 	printf("	4. Dump List1\n");
-	printf("       19. Dump List2\n");
 	printf("	5. Dump Tree\n");
 	printf("	6. Reverse List1\n");
 	printf("	7. Dump Structure DB\n");
@@ -39,13 +37,50 @@ do{
 	printf("	14. Tree:removeHalfNodes\n");
 	printf("	15. Clean Standby Application State\n");
 	printf("	16. Bulk Sync\n");
+	printf("        17. Add element in a list2\n");
+	printf("        18. Delete element from the list2\n");
+	printf("        19. Dump List2\n");
+        printf("        20. Delete complete list\n");
 	printf("	21. No of Objects that will sync\n");
 	printf("	22. Exchange Lists\n");
+	printf("	23. Enable Checkpoint\n");
+	printf("	24. Disable Checkpoint\n");
+	printf("	25. Load Checkpoint\n");
 	printf("Enter Choice : ");
 	int choice;
 	scanf("%d", &choice);
 	printf("\n");
 	switch(choice){
+		case 23:
+		{
+				if(I_AM_ACTIVE_CP)
+					enable_checkpoint = CHECKPOINT_ENABLE;		
+		}
+		break;
+		case 24:
+		{		if(I_AM_ACTIVE_CP)
+					enable_checkpoint = CHECKPOINT_DISABLE;		
+		}
+		break;
+		case 25:
+		{
+				char consume_new_line[2];
+				fgets((char *)consume_new_line, 2, stdin);
+				char chk_p_filename[64];
+				printf("Enter checkpoint file name : ");
+				if((fgets((char *)chk_p_filename, 64, stdin) == NULL)){
+					printf("error in reading from stdin\n");
+					exit(EXIT_SUCCESS);
+				}
+				char *del = "\n";
+				char *file_name = strtok(chk_p_filename, del);
+				load_checkpoint (chk_p_filename);
+
+				
+				
+				
+		}
+		break;
 		case 1:
 		{
 			int elem;

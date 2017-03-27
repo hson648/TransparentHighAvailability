@@ -26,22 +26,31 @@ static sock_arg_t gsock_recv;
 extern int I_AM_ACTIVE_CP;
 extern tha_handle_t *handle;
 
+char enable_checkpoint = CHECKPOINT_DISABLE; 
+FILE * checkpoint_file = NULL;
+
+
 int
 tha_sync_msg_to_standby(char *msg, int size){
 	int rc = SUCCESS;
 
 	rc = sendto(gsock_send.sockfd, msg , size, 0,
 		(struct sockaddr *)&gsock_send.dest_addr, sizeof(struct sockaddr));
+	printf("%s(): %d bytes sent\n", __FUNCTION__, rc);
 	return rc;
 }
 
 
-static int
-state_sync_start(tha_handle_t *handle, char *msg, 
-		 int size){
-	if(msg)
+int
+state_sync_start(tha_handle_t *handle, char *msg, int size){
+	if(msg){
+		if(enable_checkpoint == CHECKPOINT_ENABLE){
+			fwrite(msg, size, 1, checkpoint_file);
+			return 0;
+		}
 		return tha_sync_msg_to_standby(msg, size);
-	else
+	}
+	else 
 		return tha_sync_object_db(handle);
 }
 

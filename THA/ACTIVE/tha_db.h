@@ -8,44 +8,11 @@ extern int I_AM_ACTIVE_CP;
 
 /* primitive THA sync enable Data structures*/
 
-typedef struct _uint8_t{
-	short val;
-	int *tha_enable;
-} tha_uint8_t;
+#define CHECKPOINT_DISABLE	0
+#define CHECKPOINT_ENABLE	(!CHECKPOINT_DISABLE)
 
-typedef struct _int_t{
-	int val;
-	int *tha_enable;
-} tha_int_t;
-
-
-typedef struct _uint_t{
-	unsigned int val;
-	int *tha_enable;
-} tha_uint_t;
-
-
-typedef struct _float_t{
-	float val;
-	int *tha_enable;
-} tha_float_t;
-
-
-typedef struct _double_t{
-	double val;
-	int *tha_enable;
-} tha_double_t;
-
-typedef struct _char_t{
-	char val[256];
-	int *tha_enable;
-} tha_char_t;
-
-typedef struct _obj_ptr_t{
-	void *ptr;
-	int *tha_enable;
-} tha_obj_ptr_t;
-
+void 
+load_checkpoint (char *CHP_FILE_NAME);
 
 /* THA Struct db */
 typedef struct _tha_struct_db_rec_t tha_struct_db_rec_t;
