@@ -58,6 +58,10 @@ state_sync_start(tha_handle_t *handle, char *msg, int size){
 int
 ha_sync(tha_handle_t *handle){
 	if(I_AM_ACTIVE_CP == 0) return SUCCESS;
+	if(enable_checkpoint == CHECKPOINT_ENABLE){
+		printf("Incremental sync is not supported when checkpoint is enabled\n");
+		return 0;
+	}
 	return state_sync_start(handle, NULL, 0);
 }
 
