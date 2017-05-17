@@ -19,6 +19,8 @@ extern char enable_checkpoint ;
 extern int state_sync_start(tha_handle_t *handle, char *msg, int size);
 ser_buff_t *checkpoint_load_buffer;
 
+/* Function to send notification to Standby Machine to invole the commit of 
+Orphan pointers it has accumulated during bulk sync of Memory objects */
 
 static void
 tha_send_orphan_pointers_commit(){
@@ -34,6 +36,9 @@ tha_send_orphan_pointers_commit(){
 	free_serialize_buffer(b);
 }
 
+/* Fn to send Commit notification to Standby. This msg tells Standby that Active has 
+Finished syncing all its Application state, and no object is pending. Standby However
+Do not take any special action having recieved this message */
 
 static void
 tha_send_commit(){
@@ -49,6 +54,10 @@ tha_send_commit(){
 	free_serialize_buffer(b);
 }
 
+/* Fn is invoked to process the orphan pointers. This fn is invoked only on standby Machine.
+Orphan pointers are pointers which store the reference to objects (object id) that they should point to, 
+but yet do not point to. This routine search the objects in the process memory using object_id, and link the
+pointer to objects - pointers no more orphans */
 static void
 tha_process_commit_orphan_pointers_list(tha_handle_t *handle){
 	int i = 0;
@@ -93,6 +102,9 @@ tha_process_commit_orphan_pointers_list(tha_handle_t *handle){
 	delete_singly_ll(hash_code_recompute_list);
 }
 
+/* This fn reconstructs the Objects embedded inside the parent structure. ser_buff_t *b points to the
+starting pointer of the internal object. We read this ser_buff_t *b buffer serially and populate the internal object
+of the structure. Internal object in turn can have more internal objects and pointers, hence fn is recursive */
 
 void
 de_serialize_internal_object(tha_handle_t *handle, ser_buff_t *b, // points to the value of this buffer
@@ -160,6 +172,11 @@ de_serialize_internal_object(tha_handle_t *handle, ser_buff_t *b, // points to t
 /* obj_ptr = Current object pointer, 
 b - serialisex buffer , poitns to detaFields 
 struct_rec - structure record for Current object pointer*/
+
+
+/* This fn reconstructs the object pointers embedded inside the parent structure. ser_buff_t *b points to the
+starting pointer of the object to be constructec. We read the ser_buff_t b serially and populate the object
+of the structure. Object being constructed in turn can have more internal objects/objects pointers, hence fn is recursive */
 
 int
 de_serialize_object(tha_handle_t *handle, char *obj_ptr, ser_buff_t *b, 
@@ -842,9 +859,12 @@ be synced fully irrespective of which fields have changed. We will improve on th
         }
 }
 
+/* Fn to sync all the dirty objects in the heap - that is changed objects */
 int
 tha_sync_object_db(tha_handle_t *handle){
         int i = 0, rc = SUCCESS, count_dirty_objects = 0;
+
+	/* find and mark the Dirty objects in object database*/
         count_dirty_objects = mark_changed_objects(handle);
 
         if(!count_dirty_objects){
@@ -858,10 +878,12 @@ tha_sync_object_db(tha_handle_t *handle){
         tha_object_db_rec_t *object_rec = object_db->head;
 
         for(; i < object_db->count; i++){
-		if(!object_rec->dirty_bit){
+		if(!object_rec->dirty_bit){ /* Need not sync the un-modified objects*/
 			object_rec = object_rec->next;
 			continue;
 		}
+
+		/* SYNC_CHANGED_FIELDS - sync only changed fields */
                 rc = tha_sync_object(UPDATE_OBJ, handle, object_rec, SYNC_CHANGED_FIELDS);
                 if(rc == FAILURE){
                         printf("%s() : Error : Object %s could not be synced. skippinng ...\n",
@@ -871,10 +893,11 @@ tha_sync_object_db(tha_handle_t *handle){
                 }
                 object_rec = object_rec->next;
         }
-        clean_dirty_bit(handle);
+        clean_dirty_bit(handle);/* clear dirty bits of all dirty objects as they are synced now*/
         return rc;
 }
 
+/* fn to send delete notification for the object identified by obj_id on standby*/
 int
 tha_sync_delete_one_object(tha_handle_t *handle, char *obj_id){
 	serialize_hdr_t hdr;
@@ -900,6 +923,7 @@ tha_sync_delete_one_object(tha_handle_t *handle, char *obj_id){
 	return SUCCESS;
 } 
 
+/* fn to ask the standby to flush its entire heap state*/
 void
 send_tha_clean_application_state_order(tha_handle_t *handle){
 	serialize_hdr_t hdr;
@@ -920,7 +944,11 @@ send_tha_clean_application_state_order(tha_handle_t *handle){
 }
 
 /* This is basically DFS algorithm. If object A has a pointer to object B
-(A -----> B), then B should be sync before A.*/
+(A -----> B), then B should be sync before A.
+
+This fn sync all objects to standby in Bottom up fashion, that is leaf objects first
+then their parents till root. The 2nd arg object_rec is the root of the object tree
+*/
 
 static void 
 add_to_dependency_graph(tha_handle_t *handle, 
@@ -983,7 +1011,7 @@ format_time(char *output){
 			timeinfo->tm_min, timeinfo->tm_sec);
 }
 
-
+/* fn to sync the entire heap state of the application */
 int
 tha_bulk_sync(tha_handle_t *handle){
 	
@@ -1049,6 +1077,8 @@ tha_bulk_sync(tha_handle_t *handle){
 	return SUCCESS;
 }
 
+/* fn to create a heap state from the checkpointing file binary file which stores the application
+state of some previous timestamp in binary format */
 
 void
 load_checkpoint (char *CHP_FILE_NAME){

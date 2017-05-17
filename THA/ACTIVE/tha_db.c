@@ -33,47 +33,39 @@ char *DATA_TYPE[] = {"UINT8" ,
 
 static tha_field_info_t tha_int_t_fields[] = {
 	{"primitive", sizeof(int), 0, INT32, "NA", NULL}
-	//HA_FIELD_INFO(tha_int_t, val, INT32, 0)
 };
 
 
 static tha_field_info_t tha_uint_t_fields[] = {
 	{"primitive", sizeof(unsigned int), 0, UINT32, "NA", NULL}
-	//HA_FIELD_INFO(tha_uint_t, val, UINT32, 0)
 };
 
 
 static tha_field_info_t tha_float_t_fields[] = {
 	{"primitive", sizeof(float), 0, FLOAT, "NA", NULL}
-	//HA_FIELD_INFO(tha_float_t, val, FLOAT, 0)
 };
 
 
 static tha_field_info_t tha_double_t_fields[] = {
 	{"primitive", sizeof(double), 0, DOUBLE, "NA", NULL}
-	//HA_FIELD_INFO(tha_double_t, val, DOUBLE, 0)
 };
 
 
 static tha_field_info_t tha_char_t_fields[] = {
 	{"primitive", sizeof(char), 0, CHAR, "NA", NULL}
-	//HA_FIELD_INFO(tha_char_t, val, CHAR, 0)
 };
 
 static tha_field_info_t tha_uint8_t_fields[] = {
 	{"primitive", sizeof(char), 0, UINT8, "NA", NULL}
-	//HA_FIELD_INFO(tha_uint8_t, val, UINT8, 0)
 };
 
 static tha_field_info_t tha_void_ptr_t_fields[] = {
 	{"primitive", sizeof(void *), 0, VOID_PTR, "NA", NULL}
-	//HA_FIELD_INFO(tha_obj_ptr_t, ptr, VOID_PTR, 0)
 };
 
 #if 1
 static tha_field_info_t tha_obj_ptr_t_fields[] = {
 	{"primitive", sizeof(void *), 0, OBJ_PTR, "NA", NULL}
-	//HA_FIELD_INFO(tha_obj_ptr_t, ptr, VOID_PTR, 0)
 };
 #endif
 
@@ -124,6 +116,7 @@ tha_handle_t* init_tha(char *standby_ip, _fn_ptr_db fn_ptr_db){
 	return handle;
 }
 
+/* Add the structure in the structure database */
 int
 ha_reg_struct( tha_handle_t *handle, tha_struct_db_rec_t *rec){
 
@@ -155,7 +148,7 @@ ha_reg_struct( tha_handle_t *handle, tha_struct_db_rec_t *rec){
 	return SUCCESS;
 }
 
-
+/* Add the object in the object database */
 int
 ha_reg_object( tha_handle_t *handle, tha_object_db_rec_t *rec){
 	tha_object_db_t *object_db = handle->object_db;
@@ -188,6 +181,7 @@ ha_unreg_object(tha_handle_t *handle, tha_object_db_rec_t *rec){
 	return 0;
 }
 
+/* fn to add the calloc'd memory to object database*/
 int
 tha_add_object(tha_handle_t *handle, void *obj_ptr, char *str_name, 
 		char *obj_id, int units, int obj_type){
