@@ -143,6 +143,23 @@ singly_ll_remove_node_by_value(ll_t *ll, void *data, int size){
     return curren_node_count - GET_NODE_COUNT_SINGLY_LL(ll);
 }
 
+
+unsigned int
+singly_ll_remove_node_by_dataptr(ll_t *ll, void *data){
+    if(!ll || !GET_HEAD_SINGLY_LL(ll)) return 0;
+    unsigned int curren_node_count = GET_NODE_COUNT_SINGLY_LL(ll);
+    singly_ll_node_t* trav = GET_HEAD_SINGLY_LL(ll);
+    while(trav != NULL){
+        if(trav->data == data){
+            singly_ll_remove_node(ll, trav);
+            return curren_node_count - GET_NODE_COUNT_SINGLY_LL(ll);
+        }
+        trav = trav->next;
+    }
+    return curren_node_count - GET_NODE_COUNT_SINGLY_LL(ll);
+}
+
+
 singly_ll_node_t*
 singly_ll_get_node_by_data_ptr(ll_t *ll, void *data){
 	if(!ll || !GET_HEAD_SINGLY_LL(ll)) return NULL;
