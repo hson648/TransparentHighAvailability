@@ -139,13 +139,13 @@ de_serialize_internal_object(tha_handle_t *handle, ser_buff_t *b, // points to t
 					de_serialize_string(obj_id, b, MAX_STRUCTURE_NAME_SIZE);
 					obj_id[MAX_STRUCTURE_NAME_SIZE -1] = '\0';
 
-					tha_object_db_rec_t *obj_rec =
-                                                        tha_object_db_lookup_by_objid(handle, obj_id);
+                    tha_object_db_rec_t *obj_rec =
+                        tha_object_db_lookup_by_objid(handle, obj_id);
 
-                                        if(!obj_rec){
-                                                printf("%s() : WARNING : Could not find THA suported object to which %s->%s points\n",
-                                                                __FUNCTION__, struct_rec->struct_name, fields[i].fname);
-                                                memset(obj_ptr + foffset, 0, fsize);
+                    if(!obj_rec){
+                        printf("%s() : WARNING : Could not find THA suported object to which %s->%s points\n",
+                                __FUNCTION__, struct_rec->struct_name, fields[i].fname);
+                        memset(obj_ptr + foffset, 0, fsize);
 						tha_sync_dependency_graph_pending_linkage_list_t *link_data = 
 							calloc(1, sizeof(tha_sync_dependency_graph_pending_linkage_list_t));
 						link_data->from_ptr = (void **)(obj_ptr + foffset);
